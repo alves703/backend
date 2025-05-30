@@ -44,18 +44,20 @@ def get_excel_file_id():
         site_url = f"https://graph.microsoft.com/v1.0/sites/nuvemedge.sharepoint.com:{site_path}"
         response = requests.get(site_url, headers=headers)
         if response.status_code != 200:
-            print(f"Erro ao obter ID do site: {response.status_code}")
-            print(response.text)
+            print(f"[Site] Erro {response.status_code} - {response.text}")
             return None
+        else:
+            print(f"[Site] SUCESSO: {response.json()}")
 
         site_id = response.json().get('id')
 
         drive_item_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/root:/{file_path}"
         response = requests.get(drive_item_url, headers=headers)
         if response.status_code != 200:
-            print(f"Erro ao obter ID do arquivo: {response.status_code}")
-            print(response.text)
+            print(f"[Arquivo] Erro {response.status_code} - {response.text}")
             return None
+        else:
+            print(f"[Arquivo] SUCESSO: {response.json()}")
 
         _file_id_cache = response.json().get('id')
         return _file_id_cache
