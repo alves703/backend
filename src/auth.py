@@ -28,9 +28,11 @@ def get_access_token():
     # Verificar se o token em cache ainda é válido (com margem de segurança de 5 minutos)
     current_time = time.time()
     if _token_cache["access_token"] and _token_cache["expires_at"] > current_time + 300:
+        print(f"[Auth] Usando token em cache (válido por mais {int((_token_cache['expires_at'] - current_time) / 60)} minutos)")
         return _token_cache["access_token"]
     
     # Token expirado ou não existe, obter um novo
+    print("[Auth] Obtendo novo token de acesso...")
     authority = f"https://login.microsoftonline.com/{TENANT_ID}"
     app = msal.ConfidentialClientApplication(
         CLIENT_ID,
@@ -45,8 +47,9 @@ def get_access_token():
         # Armazenar token em cache com tempo de expiração
         _token_cache["access_token"] = result["access_token"]
         _token_cache["expires_at"] = current_time + result.get("expires_in", 3600)
+        print(f"[Auth] Novo token obtido com sucesso (válido por {result.get('expires_in', 3600) / 60} minutos)")
         return result["access_token"]
     else:
-        print(f"Erro ao obter token: {result.get('error')}")
-        print(f"Descrição: {result.get('error_description')}")
+        print(f"[Auth] Erro ao obter token: {result.get('error')}")
+        print(f"[Auth] Descrição: {result.get('error_description')}")
         return None
