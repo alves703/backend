@@ -1,5 +1,6 @@
 import os
 from flask import Flask, request, jsonify
+app = Flask(__name__)
 from flask_cors import CORS
 from dotenv import load_dotenv
 from .excel import update_cell, get_cell_value, get_range_values, find_next_empty_cell, clear_range, check_connection
