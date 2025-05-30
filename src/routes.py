@@ -2,7 +2,17 @@ import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-from .excel import update_cell, get_cell_value, get_range_values, find_next_empty_cell, clear_range, check_connection
+from .excel import (
+    update_cell, 
+    get_cell_value, 
+    get_range_values, 
+    find_next_empty_row, 
+    clear_range, 
+    check_connection,
+    get_summary_data,
+    get_history_data,
+    write_operation
+)
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -47,12 +57,24 @@ def create_app():
                 if not updated:
                     print(f"[API] Aviso: Nenhum valor fornecido para célula {cell} (campos possíveis: {field_names})")
             
+            # Após atualizar as células, obter os dados atualizados para retornar ao frontend
+            summary_data = get_summary_data()
+            
             if cells_updated:
                 print(f"[API] Células atualizadas com sucesso: {cells_updated}")
-                return jsonify({"status": "success", "message": "Células atualizadas com sucesso", "cells_updated": cells_updated}), 200
+                return jsonify({
+                    "status": "success", 
+                    "message": "Células atualizadas com sucesso", 
+                    "cells_updated": cells_updated,
+                    **summary_data  # Incluir dados atualizados na resposta
+                }), 200
             else:
                 print("[API] Nenhuma célula foi atualizada")
-                return jsonify({"status": "warning", "message": "Nenhuma célula foi atualizada"}), 200
+                return jsonify({
+                    "status": "warning", 
+                    "message": "Nenhuma célula foi atualizada",
+                    **summary_data  # Incluir dados atualizados na resposta
+                }), 200
         except Exception as e:
             print(f"[API] Exceção ao processar /update: {str(e)}")
             return jsonify({"status": "error", "message": f"Erro ao atualizar células: {str(e)}"}), 500
@@ -62,16 +84,27 @@ def create_app():
     def win():
         try:
             print("[API] Recebido pedido para registrar vitória")
-            next_row = find_next_empty_cell('C', 3, 102)
+            next_row = find_next_empty_row('C', 3, 102)
             
             if next_row is None:
                 print("[API] Não há células vazias disponíveis para registrar vitória")
                 return jsonify({"status": "error", "message": "Não há células vazias disponíveis"}), 400
             
             print(f"[API] Registrando vitória na célula C{next_row}")
-            if update_cell(f"C{next_row}", "W"):
+            if write_operation(next_row, "W"):
                 print(f"[API] Vitória registrada com sucesso na célula C{next_row}")
-                return jsonify({"status": "success", "message": f"Vitória registrada na célula C{next_row}"}), 200
+                
+                # Obter dados atualizados após registrar a vitória
+                summary_data = get_summary_data()
+                history_data = get_history_data(10)  # Limitar a 10 itens mais recentes
+                
+                # Retornar todos os dados necessários para atualizar o frontend
+                return jsonify({
+                    "status": "success", 
+                    "message": f"Vitória registrada na célula C{next_row}",
+                    **summary_data,
+                    "historico": history_data
+                }), 200
             else:
                 print("[API] Erro ao registrar vitória")
                 return jsonify({"status": "error", "message": "Erro ao registrar vitória"}), 500
@@ -84,16 +117,27 @@ def create_app():
     def loss():
         try:
             print("[API] Recebido pedido para registrar derrota")
-            next_row = find_next_empty_cell('C', 3, 102)
+            next_row = find_next_empty_row('C', 3, 102)
             
             if next_row is None:
                 print("[API] Não há células vazias disponíveis para registrar derrota")
                 return jsonify({"status": "error", "message": "Não há células vazias disponíveis"}), 400
             
             print(f"[API] Registrando derrota na célula C{next_row}")
-            if update_cell(f"C{next_row}", "L"):
+            if write_operation(next_row, "L"):
                 print(f"[API] Derrota registrada com sucesso na célula C{next_row}")
-                return jsonify({"status": "success", "message": f"Derrota registrada na célula C{next_row}"}), 200
+                
+                # Obter dados atualizados após registrar a derrota
+                summary_data = get_summary_data()
+                history_data = get_history_data(10)  # Limitar a 10 itens mais recentes
+                
+                # Retornar todos os dados necessários para atualizar o frontend
+                return jsonify({
+                    "status": "success", 
+                    "message": f"Derrota registrada na célula C{next_row}",
+                    **summary_data,
+                    "historico": history_data
+                }), 200
             else:
                 print("[API] Erro ao registrar derrota")
                 return jsonify({"status": "error", "message": "Erro ao registrar derrota"}), 500
@@ -129,7 +173,17 @@ def create_app():
             
             if success:
                 print("[API] Dados zerados com sucesso")
-                return jsonify({"status": "success", "message": "Dados zerados com sucesso"}), 200
+                
+                # Obter dados atualizados após zerar
+                summary_data = get_summary_data()
+                
+                # Retornar todos os dados necessários para atualizar o frontend
+                return jsonify({
+                    "status": "success", 
+                    "message": "Dados zerados com sucesso",
+                    **summary_data,
+                    "historico": []  # Histórico vazio após zerar
+                }), 200
             else:
                 print("[API] Erro ao zerar dados")
                 return jsonify({"status": "error", "message": "Erro ao zerar dados"}), 500
@@ -137,48 +191,25 @@ def create_app():
             print(f"[API] Exceção ao processar /reset: {str(e)}")
             return jsonify({"status": "error", "message": f"Erro ao zerar dados: {str(e)}"}), 500
 
-    # Endpoint para obter dados da planilha
+    # Endpoint para obter dados da planilha (usado apenas no carregamento inicial)
     @app.route('/dados', methods=['GET'])
     def get_data():
         try:
-            print("[API] Recebido pedido para obter dados")
-            # Obter valores das células individuais
-            print("[API] Obtendo valores das células individuais")
-            capital_atual = get_cell_value("N25")
-            lucro_acumulado = get_cell_value("N26")
-            acertos = get_cell_value("N29")
-            erros = get_cell_value("N30")
+            print("[API] Recebido pedido para obter dados iniciais")
             
-            # Obter valores dos intervalos
-            print("[API] Obtendo valores dos intervalos")
-            entradas = get_range_values("D3:D102")
-            lucros = get_range_values("E3:E102")
-            numeros = get_range_values("B3:B102")
-            resultados = get_range_values("C3:C102")
+            # Obter dados resumidos
+            summary_data = get_summary_data()
             
-            # Formatar histórico
-            historico = []
-            for i in range(min(len(numeros), len(entradas), len(resultados), len(lucros))):
-                if numeros[i][0] is not None:  # Se o número da operação existe
-                    historico.append({
-                        "numero": numeros[i][0],
-                        "valor": entradas[i][0],
-                        "resultado": resultados[i][0],
-                        "lucro": lucros[i][0]
-                    })
+            # Obter histórico
+            history_data = get_history_data()
             
             # Formatar resposta
             response = {
-                "capital_atual": capital_atual,
-                "lucro_acumulado": lucro_acumulado,
-                "acertos": acertos,
-                "erros": erros,
-                "entradas": [row[0] for row in entradas if row and row[0] is not None],
-                "lucros": [row[0] for row in lucros if row and row[0] is not None],
-                "historico": historico
+                **summary_data,
+                "historico": history_data
             }
             
-            print("[API] Dados obtidos com sucesso")
+            print("[API] Dados iniciais obtidos com sucesso")
             return jsonify(response), 200
         
         except Exception as e:
