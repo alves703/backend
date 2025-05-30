@@ -1,1 +1,1 @@
-web: gunicorn 'src.routes:create_app()'
+web: gunicorn src.routes:app
