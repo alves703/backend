@@ -32,35 +32,22 @@ def get_excel_file_id():
         if not token:
             return None
 
-        parts = EXCEL_FILE_PATH.split('/')
-        site_path = '/'.join(parts[:2])  # /personal/acesso_nuvemedge_com
-        file_path = '/'.join(parts[2:])  # Documents/formula.xlsx
-
         headers = {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json'
+            "Authorization": f"Bearer {token}"
         }
 
-        site_url = f"https://graph.microsoft.com/v1.0/sites/nuvemedge.sharepoint.com:{site_path}"
-        response = requests.get(site_url, headers=headers)
-        if response.status_code != 200:
-            print(f"[Site] Erro {response.status_code} - {response.text}")
-            return None
-        else:
-            print(f"[Site] SUCESSO: {response.json()}")
+        # Acessar diretamente o OneDrive do usuário
+        url = f"https://graph.microsoft.com/v1.0/users/{USER_ID}/drive/root:/Documents/formula.xlsx"
+        response = requests.get(url, headers=headers)
 
-        site_id = response.json().get('id')
-
-        drive_item_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/root:/{file_path}"
-        response = requests.get(drive_item_url, headers=headers)
         if response.status_code != 200:
             print(f"[Arquivo] Erro {response.status_code} - {response.text}")
             return None
-        else:
-            print(f"[Arquivo] SUCESSO: {response.json()}")
 
-        _file_id_cache = response.json().get('id')
-        return _file_id_cache
+        file_id = response.json().get("id")
+        _file_id_cache = file_id
+        return file_id
+
 
 def update_cell(cell, value):
     with _excel_operation_lock:
