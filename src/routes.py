@@ -18,29 +18,41 @@ def create_app():
             data = request.json
             print(f"[API] Recebido pedido de atualização: {data}")
             
-            # Mapeamento de campos para células
+            # Mapeamento de campos para células com suporte a múltiplos formatos
             cell_mapping = {
-                'capital_inicial': 'N12',
-                'total_operacoes': 'N13',
-                'operacoes_ganho': 'N14',
-                'payout_fixo': 'N15'
+                'N12': ['capital_inicial'],
+                'N13': ['total_operacoes'],
+                'N14': ['operacoes_ganho', 'operacoes_com_ganho'],
+                'N15': ['payout_fixo', 'payout']
             }
             
             success = True
-            for field, cell in cell_mapping.items():
-                value = data.get(field)
-                if value is not None:
-                    print(f"[API] Atualizando {field} ({cell}) com valor: {value}")
-                    if not update_cell(cell, value):
-                        success = False
-                        print(f"[API] Falha ao atualizar {field} ({cell})")
+            cells_updated = []
             
-            if success:
-                print("[API] Todas as células foram atualizadas com sucesso")
-                return jsonify({"status": "success", "message": "Células atualizadas com sucesso"}), 200
+            # Processar cada célula e tentar todos os possíveis nomes de campo
+            for cell, field_names in cell_mapping.items():
+                updated = False
+                
+                # Tentar cada possível nome de campo
+                for field_name in field_names:
+                    value = data.get(field_name)
+                    if value is not None:
+                        print(f"[API] Atualizando {field_name} ({cell}) com valor: {value}")
+                        if update_cell(cell, value):
+                            cells_updated.append(cell)
+                            updated = True
+                            break  # Campo encontrado e atualizado, não precisa tentar outros nomes
+                
+                # Se nenhum dos possíveis nomes de campo foi encontrado ou atualizado
+                if not updated:
+                    print(f"[API] Aviso: Nenhum valor fornecido para célula {cell} (campos possíveis: {field_names})")
+            
+            if cells_updated:
+                print(f"[API] Células atualizadas com sucesso: {cells_updated}")
+                return jsonify({"status": "success", "message": "Células atualizadas com sucesso", "cells_updated": cells_updated}), 200
             else:
-                print("[API] Erro ao atualizar uma ou mais células")
-                return jsonify({"status": "error", "message": "Erro ao atualizar células"}), 500
+                print("[API] Nenhuma célula foi atualizada")
+                return jsonify({"status": "warning", "message": "Nenhuma célula foi atualizada"}), 200
         except Exception as e:
             print(f"[API] Exceção ao processar /update: {str(e)}")
             return jsonify({"status": "error", "message": f"Erro ao atualizar células: {str(e)}"}), 500
