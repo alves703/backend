@@ -37,7 +37,8 @@ def get_excel_file_id():
         }
 
         # Acessar diretamente o OneDrive do usuário
-        url = f"https://graph.microsoft.com/v1.0/users/{USER_ID}/drive/root:/Documents/formula.xlsx"
+        file_path = os.getenv("EXCEL_FILE_PATH")
+        url = f"https://graph.microsoft.com/v1.0/users/{USER_ID}/drive/root:/{file_path}"
         response = requests.get(url, headers=headers)
 
         if response.status_code != 200:
